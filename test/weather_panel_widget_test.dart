@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
@@ -61,7 +63,10 @@ void main() {
         );
         setUp(tester);
 
-        when(mockWeatherRepository.fetchWeather(any)).thenReturn(weather);
+        final completer = Completer<Weather>();
+        when(mockWeatherRepository.fetchWeather(any)).thenAnswer(
+          (_) => completer.future,
+        );
 
         await tester.pumpWidget(
           ProviderScope(
@@ -76,12 +81,19 @@ void main() {
         );
 
         await tester.tap(find.text('Reload'));
+        // 非同期処理を開始(Reloadボタン押下)
+        await tester.pump();
+        // インジケータが表示されているか
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        completer.complete(weather);
         await tester.pumpAndSettle();
 
         final asset = SvgPicture.asset(svg);
         expect(find.svg(asset.bytesLoader), findsOneWidget);
         expect(find.text('100℃'), findsOneWidget);
         expect(find.text('0℃'), findsOneWidget);
+        // インジケータが消えているか
+        expect(find.byType(CircularProgressIndicator), findsNothing);
       });
     }
   });
@@ -96,7 +108,7 @@ void main() {
       final errorCases = [
         (InvalidParameterException(), '「${location.area}」は無効な地域名です'),
         (
-          UnkownException(),
+          UnknownException(),
           '予期せぬエラーが発生しております。'
               '時間を置いてもエラーが発生する場合はお問い合わせお願いいたします。'
         ),
@@ -154,6 +166,8 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(AlertDialog), findsNothing);
+        // インジケータが消えているか
+        expect(find.byType(CircularProgressIndicator), findsNothing);
       }
     });
   });
